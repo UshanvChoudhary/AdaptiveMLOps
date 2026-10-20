@@ -1,10 +1,11 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
+from pydantic import BaseModel, ConfigDict
+from typing import Optional, Union
+from uuid import UUID
 from datetime import datetime
 from app.db.models.governance import ApprovalStatus, AuditAction
 
 class ApprovalBase(BaseModel):
-    model_version_id: str
+    model_version_id: Union[UUID, str]
     status: ApprovalStatus
     comments: Optional[str] = None
 
@@ -16,7 +17,7 @@ class ApprovalUpdate(BaseModel):
     comments: Optional[str] = None
 
 class ApprovalResponse(ApprovalBase):
-    id: str
+    id: Union[UUID, str]
     reviewer: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -25,7 +26,7 @@ class ApprovalResponse(ApprovalBase):
 
 class AuditLogBase(BaseModel):
     action: AuditAction
-    resource_id: Optional[str] = None
+    resource_id: Optional[Union[UUID, str]] = None
     resource_type: Optional[str] = None
     details: Optional[str] = None
 
@@ -33,7 +34,7 @@ class AuditLogCreate(AuditLogBase):
     actor: str
 
 class AuditLogResponse(AuditLogBase):
-    id: str
+    id: Union[UUID, str]
     actor: str
     created_at: datetime
 

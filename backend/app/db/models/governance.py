@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, DateTime, Enum, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime, UTC
+from datetime import datetime
 import enum
 import uuid
 
@@ -33,8 +33,8 @@ class Approval(Base):
     status = Column(Enum(ApprovalStatus), default=ApprovalStatus.PENDING, nullable=False)
     reviewer = Column(String, nullable=True) # User ID/Role
     comments = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     model_version = relationship("ModelVersion", backref="approvals")
 
@@ -47,4 +47,4 @@ class AuditLog(Base):
     resource_id = Column(UUID(as_uuid=True), nullable=True) # Related to prediction_id, model_version_id, deployment_id, etc.
     resource_type = Column(String, nullable=True)
     details = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

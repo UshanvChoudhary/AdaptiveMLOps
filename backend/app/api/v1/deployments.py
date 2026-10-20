@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 from app.dependencies import get_db, get_admin_api_key
 from app.schemas.deployment import DeploymentListResponse, DeploymentResponse, DeploymentCreate, HealthCheckResponse, DeploymentUpdate
 from app.db.models.deployment import Deployment, HealthCheck, DeploymentStatus
@@ -11,32 +12,44 @@ router = APIRouter(prefix="/deployments", tags=["deployments"])
 
 @router.get("", response_model=DeploymentListResponse)
 async def list_deployments(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    total = db.query(Deployment).count()
-    deployments = db.query(Deployment).order_by(Deployment.created_at.desc()).offset(skip).limit(limit).all()
+    count_res = await db.execute(select(func.count()).select_from(Deployment))
+    total = count_res.scalar_one()
+    
+    dep_res = await db.execute(
+        select(Deployment).order_by(Deployment.created_at.desc()).offset(skip).limit(limit)
+    )
+    deployments = dep_res.scalars().all()
     return {"deployments": deployments, "total": total}
 
 @router.get("/current", response_model=DeploymentResponse)
 async def get_current_deployment(db: AsyncSession = Depends(get_db)):
-    deployment = db.query(Deployment).filter(Deployment.status == DeploymentStatus.SUCCESS).order_by(Deployment.deployed_at.desc()).first()
+    dep_res = await db.execute(
+        select(Deployment)
+        .where(Deployment.status == DeploymentStatus.SUCCESS)
+        .order_by(Deployment.deployed_at.desc())
+    )
+    deployment = dep_res.scalars().first()
     if not deployment:
         raise HTTPException(status_code=404, detail="No successful deployment found")
     return deployment
 
 @router.post("", response_model=DeploymentResponse, dependencies=[Depends(get_admin_api_key)])
 async def create_deployment(req: DeploymentCreate, db: AsyncSession = Depends(get_db)):
-    model = db.query(ModelVersion).filter(ModelVersion.id == req.model_version_id).first()
+    m_res = await db.execute(select(ModelVersion).where(ModelVersion.id == req.model_version_id))
+    model = m_res.scalars().first()
     if not model:
         raise HTTPException(status_code=404, detail="Model version not found")
         
     dep = Deployment(**req.model_dump())
     db.add(dep)
-    db.commit()
-    db.refresh(dep)
+    await db.commit()
+    await db.refresh(dep)
     return dep
 
 @router.patch("/{id}", response_model=DeploymentResponse, dependencies=[Depends(get_admin_api_key)])
 async def update_deployment(id: uuid.UUID, req: DeploymentUpdate, db: AsyncSession = Depends(get_db)):
-    dep = db.query(Deployment).filter(Deployment.id == id).first()
+    d_res = await db.execute(select(Deployment).where(Deployment.id == id))
+    dep = d_res.scalars().first()
     if not dep:
         raise HTTPException(status_code=404, detail="Deployment not found")
     
@@ -47,13 +60,14 @@ async def update_deployment(id: uuid.UUID, req: DeploymentUpdate, db: AsyncSessi
     if req.status == DeploymentStatus.SUCCESS:
         dep.deployed_at = datetime.datetime.now(datetime.timezone.utc)
         
-    db.commit()
-    db.refresh(dep)
+    await db.commit()
+    await db.refresh(dep)
     return dep
 
 @router.post("/{id}/health", response_model=HealthCheckResponse, dependencies=[Depends(get_admin_api_key)])
 async def add_health_check(id: uuid.UUID, hc: dict, db: AsyncSession = Depends(get_db)):
-    dep = db.query(Deployment).filter(Deployment.id == id).first()
+    d_res = await db.execute(select(Deployment).where(Deployment.id == id))
+    dep = d_res.scalars().first()
     if not dep:
         raise HTTPException(status_code=404, detail="Deployment not found")
         
@@ -66,10 +80,13 @@ async def add_health_check(id: uuid.UUID, hc: dict, db: AsyncSession = Depends(g
         details=hc.get("details", "")
     )
     db.add(check)
-    db.commit()
-    db.refresh(check)
+    await db.commit()
+    await db.refresh(check)
     return check
 
 @router.get("/{id}/health", response_model=list[HealthCheckResponse])
 async def get_health_checks(id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    return db.query(HealthCheck).filter(HealthCheck.deployment_id == id).order_by(HealthCheck.created_at.desc()).all()
+    res = await db.execute(
+        select(HealthCheck).where(HealthCheck.deployment_id == id).order_by(HealthCheck.created_at.desc())
+    )
+    return res.scalars().all()

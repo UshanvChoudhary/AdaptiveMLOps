@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15
@@ -29,18 +27,25 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-adaptive_mlops}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://postgres:postgres@postgres:5432/adaptive_mlops
+      - ADMIN_API_KEY=secret-admin-key
+      - SECRET_KEY=super-secret-local-key-xyz123
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - ./ml:/ml
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "3000:5173"
+      - "5173:5173"
+    environment:
+      - VITE_BACKEND_URL=http://backend:8000
     depends_on:
       - backend
 
