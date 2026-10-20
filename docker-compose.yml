@@ -25,9 +25,14 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-adaptive_mlops}
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-adaptive_mlops}
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-}
+      - SQLALCHEMY_DATABASE_URI=${SQLALCHEMY_DATABASE_URI:-}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - INSFORGE_PROJECT_URL=${INSFORGE_PROJECT_URL:-https://bdrb7j6b.ap-southeast.insforge.app}
+      - INSFORGE_API_KEY=${INSFORGE_API_KEY:-}
+      - INSFORGE_ANON_KEY=${INSFORGE_ANON_KEY:-}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-secret-admin-key}
       - SECRET_KEY=${SECRET_KEY:-super-secret-local-key-xyz123}
       - ENABLE_DEMO_MODE=${ENABLE_DEMO_MODE:-true}

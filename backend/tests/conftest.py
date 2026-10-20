@@ -1,26 +1,50 @@
 import os
 os.environ["ADMIN_API_KEY"] = "secret-admin-key"
-import os
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import pool
+
+import app.db.session as db_session
 from app.main import app
-from app.db.session import engine, Base, SessionLocal
+from app.db.session import Base
 from app.dependencies import get_db
 
+# Isolated test database to ensure automated tests NEVER touch remote/production database
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
+test_engine = create_async_engine(
+    TEST_DATABASE_URL,
+    connect_args={"check_same_thread": False} if "sqlite" in TEST_DATABASE_URL else {},
+    poolclass=pool.StaticPool if "sqlite" in TEST_DATABASE_URL else pool.NullPool
+)
+
+TestingSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
+# Patch db_session so background tasks also use the isolated test database
+db_session.engine = test_engine
+db_session.SessionLocal = TestingSessionLocal
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def create_test_db():
-    async with engine.begin() as conn:
+    async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield
-    await engine.dispose()
+    await test_engine.dispose()
 
 @pytest_asyncio.fixture
 async def async_db():
-    async with SessionLocal() as session:
+    async with TestingSessionLocal() as session:
         yield session
 
 @pytest_asyncio.fixture

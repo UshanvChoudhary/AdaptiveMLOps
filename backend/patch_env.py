@@ -1,8 +1,8 @@
-with open('.env', 'r') as f:
-    content = f.read()
+import os
 
-import re
-content = re.sub(r'SQLALCHEMY_DATABASE_URL=.*', 'SQLALCHEMY_DATABASE_URL="postgresql://postgres:fa8c513de6e0734a307047e47ffb862d@bdrb7j6b.ap-southeast.database.insforge.app:5432/insforge?sslmode=require"', content)
-
-with open('.env', 'w') as f:
-    f.write(content)
+# Safe environment helper reading from environment variables
+db_url = os.getenv("DATABASE_URL") or os.getenv("SQLALCHEMY_DATABASE_URI")
+if db_url:
+    print("Database URL present in environment.")
+else:
+    print("No database URL set in environment.")
