@@ -73,10 +73,12 @@ async def run_retraining_job(db: AsyncSession, job_id: uuid.UUID):
             return
 
         new_version = f"v1.0+{len(feedbacks)}f"
-        dataset = Dataset(version=new_version, checksum=hashlib.md5(new_version.encode()).hexdigest())
-        db.add(dataset)
-        await db.commit()
-        await db.refresh(dataset)
+        dataset = (await db.execute(select(Dataset).filter(Dataset.version == new_version))).scalars().first()
+        if not dataset:
+            dataset = Dataset(version=new_version, checksum=hashlib.md5(new_version.encode()).hexdigest())
+            db.add(dataset)
+            await db.commit()
+            await db.refresh(dataset)
         
         job.dataset_id = dataset.id
         
@@ -122,7 +124,13 @@ async def run_retraining_job(db: AsyncSession, job_id: uuid.UUID):
 
     except Exception as e:
         logger.error(f"Retraining job failed: {e}")
-        job.status = "FAILED"
-        job.error_message = str(e)
-        job.completed_at = datetime.now(timezone.utc)
-        await db.commit()
+        await db.rollback()
+        try:
+            job = (await db.execute(select(RetrainingJob).filter(RetrainingJob.id == job_id))).scalars().first()
+            if job:
+                job.status = "FAILED"
+                job.error_message = str(e)
+                job.completed_at = datetime.now(timezone.utc)
+                await db.commit()
+        except Exception as inner_e:
+            logger.error(f"Failed to record job failure: {inner_e}")
