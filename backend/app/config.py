@@ -1,19 +1,20 @@
 import os
 import urllib.parse
 from dotenv import load_dotenv
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Load local environment configuration files
+# Load local environment configuration files if present
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 load_dotenv(os.path.join(BASE_DIR, "backend", ".env"))
 
 def get_database_uri() -> str:
     # 1. Check explicit full URI environment variables
     explicit_uri = os.getenv("SQLALCHEMY_DATABASE_URI") or os.getenv("DATABASE_URL")
-    if explicit_uri:
-        return explicit_uri
+    if explicit_uri and explicit_uri.strip():
+        return explicit_uri.strip()
 
     # 2. Check component environment variables
     host = os.getenv("POSTGRES_HOST") or os.getenv("DATABASE_HOST")
@@ -35,7 +36,7 @@ def get_database_uri() -> str:
         )
         sslmode = os.getenv("DATABASE_SSL_MODE") or os.getenv("POSTGRES_SSLMODE")
         if not sslmode:
-            sslmode = "require" if ("insforge" in host or "supabase" in host or "amazonaws" in host) else "prefer"
+            sslmode = "require" if ("insforge" in host or "supabase" in host or "amazonaws" in host) else ""
 
         encoded_password = urllib.parse.quote_plus(password)
         ssl_param = f"?sslmode={sslmode}" if sslmode else ""
@@ -56,10 +57,10 @@ class Settings(BaseSettings):
     INSFORGE_ANON_KEY: str = os.getenv("INSFORGE_ANON_KEY", "")
 
     # Database Configuration
-    SQLALCHEMY_DATABASE_URI: str = get_database_uri()
+    SQLALCHEMY_DATABASE_URI: str = ""
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
     DEBUG: bool = False
-    ENABLE_DEMO_MODE: bool = os.getenv("ENABLE_DEMO_MODE", "false").lower() in ("true", "1", "yes")
+    ENABLE_DEMO_MODE: bool = os.getenv("ENABLE_DEMO_MODE", "true").lower() in ("true", "1", "yes")
 
     PRODUCTION_MODEL_DIR: str = os.path.join(BASE_DIR, "ml", "artifacts", "1.0.0")
     MIN_F1: float = 0.80
@@ -73,6 +74,13 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "super-secret-local-key-xyz123")
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
+    @classmethod
+    def validate_database_uri(cls, v):
+        if not v or not str(v).strip():
+            return get_database_uri()
+        return str(v).strip()
 
     model_config = SettingsConfigDict(
         env_file=(
