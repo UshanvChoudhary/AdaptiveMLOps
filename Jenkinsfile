@@ -8,12 +8,15 @@ pipeline {
         // Use credentials for real DB instead of hardcoded sqlite, for production
         // But for this CI test environment we connect to our local docker-compose postgres
         SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@host.docker.internal:5433/adaptive_mlops_test"
+        ADMIN_API_KEY = "secret-admin-key"
+        SECRET_KEY = "ci-secret-key-for-testing"
     }
 
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+                sh 'printf "SECRET_KEY=ci-secret-key-for-testing\nADMIN_API_KEY=secret-admin-key\n" > backend/.env'
             }
         }
         
