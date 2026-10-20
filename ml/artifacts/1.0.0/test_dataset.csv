@@ -1,0 +1,5 @@
+text,intent
+My bill is too high,billing
+Forgot password,account_management
+Network error,technical_support
+Cancel and refund,refund

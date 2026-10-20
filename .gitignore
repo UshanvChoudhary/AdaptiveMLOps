@@ -1,0 +1,15 @@
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+env/
+dist/
+build/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.DS_Store

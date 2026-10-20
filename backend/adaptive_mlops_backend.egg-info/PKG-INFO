@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: adaptive-mlops-backend
+Version: 0.1.0
+Summary: Backend for AdaptiveMLOps
+Author-email: Admin <admin@example.com>
+Requires-Python: >=3.10
+Requires-Dist: fastapi>=0.103.0
+Requires-Dist: uvicorn[standard]>=0.23.2
+Requires-Dist: pydantic>=2.3.0
+Requires-Dist: pydantic-settings>=2.0.3
+Requires-Dist: sqlalchemy>=2.0.20
+Requires-Dist: alembic>=1.12.0
+Requires-Dist: psycopg2-binary>=2.9.7
+Requires-Dist: pandas>=2.1.0
+Requires-Dist: numpy>=1.25.2
+Requires-Dist: scikit-learn>=1.3.0
+Requires-Dist: slowapi>=0.1.8
+Requires-Dist: python-jose[cryptography]>=3.3.0
+Requires-Dist: passlib[bcrypt]>=1.7.4
+Requires-Dist: asyncpg>=0.28.0
+Requires-Dist: aiosqlite>=0.19.0
+Provides-Extra: test
+Requires-Dist: pytest>=7.4.2; extra == "test"
+Requires-Dist: httpx>=0.25.0; extra == "test"
+Requires-Dist: pytest-asyncio>=0.21.1; extra == "test"
