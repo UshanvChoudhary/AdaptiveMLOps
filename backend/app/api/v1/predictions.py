@@ -23,9 +23,6 @@ async def create_prediction(
     db: AsyncSession = Depends(get_db),
     x_request_id: uuid.UUID = Header(default_factory=uuid.uuid4)
 ):
-    if prediction_service is not None and (prediction_service.model is None or prediction_service.vectorizer is None):
-        prediction_service.load_model()
-
     if prediction_service is None or prediction_service.model is None:
         raise HTTPException(status_code=503, detail="Model is currently unavailable")
         
