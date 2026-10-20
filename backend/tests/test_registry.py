@@ -50,12 +50,12 @@ async def test_manual_approve_reject(client, async_db):
     await async_db.commit()
 
     # Approve
-    response = await client.post("/api/v1/models/v1.1.0/approve")
+    response = await client.post("/api/v1/models/v1.1.0/approve", headers={"X-API-Key": "secret-admin-key"})
     assert response.status_code == 200
     assert response.json()["status"] == "PRODUCTION"
 
     # Reject
-    response2 = await client.post("/api/v1/models/v1.1.1/reject")
+    response2 = await client.post("/api/v1/models/v1.1.1/reject", headers={"X-API-Key": "secret-admin-key"})
     assert response2.status_code == 200
     assert response2.json()["status"] == "REJECTED"
 
@@ -83,7 +83,7 @@ async def test_promote_deliberately_bad_model(client, async_db):
     async_db.add(eval_run)
     await async_db.commit()
 
-    response = await client.post("/api/v1/models/v1.2.0-bad/promote")
+    response = await client.post("/api/v1/models/v1.2.0-bad/promote", headers={"X-API-Key": "secret-admin-key"})
     assert response.status_code == 200
     data = response.json()
     assert data["decision"] == "REJECT"

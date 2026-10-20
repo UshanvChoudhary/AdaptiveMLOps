@@ -54,6 +54,9 @@ async def test_trigger_threshold_retraining(client, async_db):
     assert "below threshold" in response.json()["detail"]
 
 async def test_retraining_no_eligible_feedback(client, async_db):
+    await async_db.execute(sqlalchemy.text('DELETE FROM feedback'))
+    await async_db.execute(sqlalchemy.text('DELETE FROM retraining_jobs'))
+    await async_db.commit()
     # Trigger a manual job when there is no feedback
     response = await client.post("/api/v1/retraining/trigger", headers={"X-API-Key": "secret-admin-key"}, json={
         "trigger_type": "MANUAL",

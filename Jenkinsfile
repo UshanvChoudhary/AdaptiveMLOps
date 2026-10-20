@@ -95,8 +95,8 @@ pipeline {
         stage('Docker Build') {
             steps {
                 echo "Building Docker images with tag ${env.IMAGE_TAG}"
-                sh 'docker build -t adaptive-mlops-backend:${IMAGE_TAG} ./backend || echo "Simulated build for backend"'
-                sh 'docker build -t adaptive-mlops-frontend:${IMAGE_TAG} ./frontend || echo "Simulated build for frontend"'
+                sh 'docker build -t adaptive-mlops-backend:${IMAGE_TAG} ./backend'
+                sh 'docker build -t adaptive-mlops-frontend:${IMAGE_TAG} ./frontend'
             }
         }
 

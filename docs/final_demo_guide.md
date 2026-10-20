@@ -1,58 +1,117 @@
-# AdaptiveMLOps - Final Demo Guide (Professor Demonstration)
+# AdaptiveMLOps — Final Academic Demonstration Guide
 
-This guide provides a reliable, deterministic 7-10 minute demonstration sequence for the entire MLOps lifecycle using the "Demo Mode" controls. 
+This guide provides a reliable, deterministic 7–10 minute demonstration sequence showcasing the full machine learning operations lifecycle for academic review.
 
-## Preparation
-1. Ensure the system is running (`docker-compose up` or via local servers).
-2. Open the UI and log in using demo credentials (`admin` / `password`).
-3. Navigate to the **Demo Controls** tab (highlighted in red with a "⚠️ PROFESSOR DEMO MODE ⚠️" warning).
+---
 
-## Step-by-Step Sequence
+## 1. Prerequisites and Setup
 
-### 1. Initial State (1 min)
-- **Action**: Click `Seed Data`.
-- **Expected Result**: A success message appears. The database is now seeded with initial users, a baseline champion model (`xgboost v1.0`), and initial audit events.
-- **Narrative**: "We start with a baseline model already deployed. The system is currently running in a stable state."
+1. **Verify Services Running:**
+   ```bash
+   docker-compose up -d
+   ```
+   Ensure the following containers are up:
+   - `adaptive-mlops-postgres-1` (Port 5432)
+   - `adaptive-mlops-backend-1` (Port 8000)
+   - `adaptive-mlops-frontend-1` (Port 5173 / 3000)
 
-### 2. Predictions & Feedback (1.5 min)
-- **Action**: Click `1. Generate Feedback`.
-- **Expected Result**: The system generates a deterministic prediction log and corresponding user feedback.
-- **UI Check**: Navigate to **Predictions & Feedback** tab to show the prediction and actual values aligning.
-- **Narrative**: "Users are interacting with our model. The system captures the inputs, predictions, and the actual outcomes (feedback) to measure real-world performance."
+2. **Verify Service Readiness:**
+   Open `http://localhost:8000/api/v1/ready` in your browser.  
+   Expected JSON response:
+   ```json
+   {
+     "status": "ready",
+     "database": "connected",
+     "model": "loaded",
+     "model_version": "1.0.0"
+   }
+   ```
 
-### 3. Monitoring & Drift (1 min)
-- **Action**: Click `8. Simulate Drift`.
-- **Expected Result**: A drift event is recorded for `demo_feature`.
-- **UI Check**: Navigate to **Monitoring & Drift** tab to show the drift alert.
-- **Narrative**: "The environment changes over time. Our monitoring detects a statistical drift in a key feature, alerting us that the model's assumptions may be outdated."
+3. **Open the Dashboard:**
+   Navigate to `http://localhost:5173` (or `http://localhost:3000`).  
+   Log in using the administrator demo credentials:
+   - **Username:** `admin`
+   - **Password:** `password`
 
-### 4. Triggering Retraining (1 min)
-- **Action**: Click `2. Trigger Retraining`.
-- **Expected Result**: A retraining job is queued and executed by the backend.
-- **UI Check**: Navigate to **Retraining Engine** tab. You should see a pending/completed job.
-- **Narrative**: "In response to drift and accumulated feedback, we trigger our automated retraining pipeline to build a new model."
+4. **Demo Mode Notification:**
+   Notice the warning badge: `PROFESSOR DEMO MODE ENABLED (ENABLE_DEMO_MODE=true)`.  
+   In production (`ENABLE_DEMO_MODE=false`), demo credentials and mutation endpoints are strictly disabled.
 
-### 5. Candidate Evaluation (1 min)
-- **Action**: Click `3a. Create Good Challenger` (or `3b` for a bad one).
-- **Expected Result**: A new model version (`v1.1-good`) is registered with higher metrics (e.g., 95% accuracy).
-- **UI Check**: Navigate to **Model Registry** tab to see the new model in the registry but not active.
-- **Narrative**: "The pipeline produced a new candidate model. We compare its validation metrics against our current champion."
+---
 
-### 6. Quality Gate & Promotion (1.5 min)
-- **Action**: Click `4. Run Quality Gate`, then `5. Promote Model`.
-- **Expected Result**: Audit logs record the successful quality gate check and the promotion of the challenger.
-- **UI Check**: Navigate to **Model Promotion** tab to show the status.
-- **Narrative**: "The candidate model must pass strict automated quality gates. Once it passes, an admin can approve its promotion."
+## 2. Step-by-Step Demonstration Sequence
 
-### 7. Deployment Failure & Rollback (1.5 min)
-- **Action**: Click `6. Simulate Deploy Fail`. Then click `7. Rollback`.
-- **Expected Result**: Deployment fails (simulated), triggering a rollback to `v1.0`. 
-- **UI Check**: Navigate to **Governance** tab to show the failed deployment and subsequent rollback in the audit logs.
-- **Narrative**: "Even if a model passes tests, deployment to production can fail (e.g., infrastructure issues, health check timeouts). Our system detects this immediately and automatically rolls back to the last known good state, ensuring zero downtime."
+### Step 1: Initial System State & Baseline Model (1 min)
+- **Action:** In the **Demo Controls** tab, click **`Seed Data`**.
+- **Under the Hood:** Initializes the database with roles (`admin`, `reviewer`, `user`), seeds the baseline Customer Support Intent Classifier (`TF-IDF + Logistic Regression v1.0.0`), and writes initial audit logs.
+- **Narrative to Professor:**  
+  *"We begin with our production champion model (v1.0.0) loaded in memory, serving four customer support intent categories: billing, technical support, refund, and account management. The system is fully operational and healthy."*
 
-### 8. System Lifecycle (0.5 min)
-- **Action**: Navigate to the **Lifecycle** tab.
-- **Narrative**: "This summarizes the complete lifecycle we just traversed: from predictions to feedback, retraining, evaluation, quality gating, deployment, and finally, automated rollback capabilities."
+### Step 2: Live Inference & Feedback Ingestion (1.5 min)
+- **Action:** Navigate to **Predictions & Feedback** tab. Enter a query:
+  - Text: `"My internet connection keeps dropping and lights are red"`
+  - Click **Predict**.
+  - Review the response: Predicted label `technical_support` with confidence and latency metrics.
+  - Submit human feedback correcting or confirming the intent.
+  - Alternatively, in **Demo Controls**, click **`1. Generate Feedback`** to batch-simulate incoming real-world traffic.
+- **Narrative to Professor:**  
+  *"Users submit natural language inquiries to the inference endpoint. When human agents or customers provide ground-truth corrections, the feedback records accumulate with status NEW, awaiting the next retraining cycle."*
 
-## Conclusion
-This demo mode provides a fully robust end-to-end trace of a mature MLOps architecture without the unreliability of stochastic training or external API dependencies. Every event is audited, and the separation of concerns (Reviewer vs Admin) is strictly maintained.
+### Step 3: Monitoring & Concept Drift Alert (1 min)
+- **Action:** In **Demo Controls**, click **`8. Simulate Drift`**.
+- **UI Check:** Navigate to **Monitoring & Drift** tab.
+- **Expected Result:** A drift alert appears showing that input vocabulary distributions have shifted.
+- **Narrative to Professor:**  
+  *"Our continuous monitoring detects distribution drift. Critically, as required by enterprise governance, a drift alert does not automatically trigger unvetted deployment—it alerts reviewers and flags the need for automated retraining."*
+
+### Step 4: Automated Model Retraining & Artifact Creation (1.5 min)
+- **Action:** In **Demo Controls**, click **`2. Trigger Retraining`** (or invoke the retraining engine via API).
+- **UI Check:** Navigate to **Retraining Engine** tab.
+- **Expected Result:** A new retraining job executes:
+  - Fetches base dataset and merges with new feedback.
+  - Computes a SHA-256 dataset checksum.
+  - Trains a new TF-IDF vectorizer and Logistic Regression classifier.
+  - Evaluates validation accuracy, macro F1, and p95 latency.
+  - Persists real candidate artifacts (`model.joblib`, `vectorizer.joblib`, `metadata.json`) to `ml/artifacts/{candidate_version}/`.
+- **Narrative to Professor:**  
+  *"Rather than mocking metrics, our retraining engine generates a genuine scikit-learn candidate pipeline serialized to disk, recording the exact dataset checksum, code revision, and real evaluation metrics."*
+
+### Step 5: Server-Side Quality Gates & Candidate Rejection (1.5 min)
+- **Action:** In **Demo Controls**, click **`3b. Create Bad Challenger`**.
+- **Expected Result:** A sub-par candidate is registered (e.g. F1=0.72 failing the 0.80 threshold).
+- **Action:** Attempt to promote this bad candidate.
+- **Expected Result:** Promotion is rejected with `HTTP 400 Bad Request: Candidate failed quality gate (min_f1=0.80)`.
+- **UI Check:** Verify the production champion remains intact at `v1.0.0`.
+- **Narrative to Professor:**  
+  *"Here we demonstrate our server-side safety barrier. A degraded challenger candidate can never replace the production model, even if an operator attempts promotion."*
+
+### Step 6: Valid Candidate Promotion & Zero-Downtime Hot Reload (1 min)
+- **Action:** In **Demo Controls**, click **`3a. Create Good Challenger`**, then click **`4. Run Quality Gate`**, and finally **`5. Promote Model`**.
+- **Expected Result:** Quality gates pass. The candidate is promoted to `PRODUCTION`, the prior model is marked `ARCHIVED`, and the in-memory prediction service hot-reloads the new model artifact immediately.
+- **Verification:** Run a new prediction in the **Predictions** tab to verify that inference is served by the new champion version with zero container downtime.
+- **Narrative to Professor:**  
+  *"Upon passing quality gates, the new model is promoted. The prediction service atomically updates its in-memory weights directly from the verified disk artifact without restarting the API service."*
+
+### Step 7: Automated Deployment Rollback (1 min)
+- **Action:** In **Demo Controls**, click **`6. Simulate Deploy Fail`**, then click **`7. Rollback`**.
+- **Expected Result:** The system restores the previous known healthy model (`v1.0.0`), reloads its verified artifact from disk, creates an auditable rollback deployment record, and updates the registry status.
+- **UI Check:** Navigate to **Governance** tab to show the full immutable audit trail.
+- **Narrative to Professor:**  
+  *"If a newly deployed model exhibits anomalies in production, the rollback engine restores the last verified healthy artifact from disk, updates in-memory weights, and records the incident in the audit trail."*
+
+### Step 8: Security and RBAC Negative Proof (1 min)
+- **Action:** Log out of the dashboard.
+- **Test 1:** Attempt to access an admin endpoint unauthenticated (`curl -X POST http://localhost:8000/api/v1/registry/models/cand-1/promote`). Result: `401 Unauthorized`.
+- **Test 2:** Log in as `user` (Role: USER). Attempt to trigger a deployment or promotion. Result: `403 Forbidden (Admin privileges required)`.
+- **Test 3:** Demonstrate that setting `ENABLE_DEMO_MODE=false` in `.env` blocks all demo accounts and `/demo/*` endpoints.
+- **Narrative to Professor:**  
+  *"Finally, we demonstrate strict security. Every administrative action enforces JWT or API-key RBAC, and all demonstration shortcuts are completely locked out outside local testing environments."*
+
+---
+
+## 3. Summary of Demonstrated Capabilities
+
+1. **Full Closed-Loop MLOps:** Live predictions, ground-truth feedback collection, automated retraining, and artifact management.
+2. **Deterministic Governance:** Cryptographic dataset checksums, server-side quality gates, and immutable audit logs.
+3. **High Availability:** Hot-reloading of model weights and zero-downtime automated rollback.
+4. **Hardened Security:** Role-based access control, environment-gated demo configurations, and no hardcoded production credentials.

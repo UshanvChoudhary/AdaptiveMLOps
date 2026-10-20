@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional, Any, Dict
 
 class PredictionRequest(BaseModel):
-    text: Optional[str] = Field(None, max_length=5000)
+    text: Optional[str] = Field(None, min_length=1, max_length=5000)
     features: Optional[Dict[str, Any]] = None
 
 class PredictionResponse(BaseModel):

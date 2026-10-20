@@ -2,7 +2,7 @@ from sqlalchemy.future import select
 from sqlalchemy import func
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.dependencies import get_db, get_admin_api_key
+from app.dependencies import get_db, get_current_admin_or_api_key
 from app.db import session as db_session
 from app.schemas.retraining import RetrainingTriggerRequest, RetrainingJobResponse, RetrainingJobListResponse
 from app.services.retraining_service import trigger_retraining, run_retraining_job
@@ -18,7 +18,7 @@ async def run_job_background(job_id: uuid.UUID):
     async with db_session.SessionLocal() as db:
         await run_retraining_job(db, job_id)
 
-@router.post("/trigger", response_model=RetrainingJobResponse, dependencies=[Depends(get_admin_api_key)])
+@router.post("/trigger", response_model=RetrainingJobResponse, dependencies=[Depends(get_current_admin_or_api_key)])
 async def trigger_job(
     request: RetrainingTriggerRequest,
     background_tasks: BackgroundTasks,

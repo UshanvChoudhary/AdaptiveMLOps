@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from app.dependencies import get_db, get_admin_api_key
+from app.dependencies import get_db, get_current_admin_or_api_key
 from app.schemas.deployment import DeploymentListResponse, DeploymentResponse, DeploymentCreate, HealthCheckResponse, DeploymentUpdate
 from app.db.models.deployment import Deployment, HealthCheck, DeploymentStatus
 from app.db.models.registry import ModelVersion
@@ -33,7 +33,7 @@ async def get_current_deployment(db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="No successful deployment found")
     return deployment
 
-@router.post("", response_model=DeploymentResponse, dependencies=[Depends(get_admin_api_key)])
+@router.post("", response_model=DeploymentResponse, dependencies=[Depends(get_current_admin_or_api_key)])
 async def create_deployment(req: DeploymentCreate, db: AsyncSession = Depends(get_db)):
     m_res = await db.execute(select(ModelVersion).where(ModelVersion.id == req.model_version_id))
     model = m_res.scalars().first()
@@ -46,7 +46,7 @@ async def create_deployment(req: DeploymentCreate, db: AsyncSession = Depends(ge
     await db.refresh(dep)
     return dep
 
-@router.patch("/{id}", response_model=DeploymentResponse, dependencies=[Depends(get_admin_api_key)])
+@router.patch("/{id}", response_model=DeploymentResponse, dependencies=[Depends(get_current_admin_or_api_key)])
 async def update_deployment(id: uuid.UUID, req: DeploymentUpdate, db: AsyncSession = Depends(get_db)):
     d_res = await db.execute(select(Deployment).where(Deployment.id == id))
     dep = d_res.scalars().first()
@@ -64,7 +64,7 @@ async def update_deployment(id: uuid.UUID, req: DeploymentUpdate, db: AsyncSessi
     await db.refresh(dep)
     return dep
 
-@router.post("/{id}/health", response_model=HealthCheckResponse, dependencies=[Depends(get_admin_api_key)])
+@router.post("/{id}/health", response_model=HealthCheckResponse, dependencies=[Depends(get_current_admin_or_api_key)])
 async def add_health_check(id: uuid.UUID, hc: dict, db: AsyncSession = Depends(get_db)):
     d_res = await db.execute(select(Deployment).where(Deployment.id == id))
     dep = d_res.scalars().first()

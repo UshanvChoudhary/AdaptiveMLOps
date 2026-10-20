@@ -12,6 +12,10 @@ class FeedbackRequest(BaseModel):
     def validate_corrected_label(self) -> "FeedbackRequest":
         if not self.is_correct and not self.corrected_label:
             raise ValueError("corrected_label is mandatory when is_correct is false")
+        if not self.is_correct and self.corrected_label:
+            valid_labels = {"billing", "technical_support", "refund", "account_management"}
+            if self.corrected_label not in valid_labels:
+                raise ValueError(f"corrected_label must be one of {valid_labels}")
         return self
 
 class FeedbackResponse(BaseModel):

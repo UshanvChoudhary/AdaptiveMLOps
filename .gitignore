@@ -13,3 +13,5 @@ build/
 coverage.xml
 htmlcov/
 .DS_Store
+
+ml/artifacts/cand-*/

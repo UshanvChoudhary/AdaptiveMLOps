@@ -27,9 +27,10 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-adaptive_mlops}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://postgres:postgres@postgres:5432/adaptive_mlops
-      - ADMIN_API_KEY=secret-admin-key
-      - SECRET_KEY=super-secret-local-key-xyz123
+      - SQLALCHEMY_DATABASE_URI=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-adaptive_mlops}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-secret-admin-key}
+      - SECRET_KEY=${SECRET_KEY:-super-secret-local-key-xyz123}
+      - ENABLE_DEMO_MODE=${ENABLE_DEMO_MODE:-true}
     depends_on:
       postgres:
         condition: service_healthy

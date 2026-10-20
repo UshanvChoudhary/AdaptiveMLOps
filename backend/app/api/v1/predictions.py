@@ -28,10 +28,14 @@ async def create_prediction(
     if prediction_service is None:
         raise HTTPException(status_code=503, detail="Prediction service unavailable")
         
-    if prediction_service.model is None:
-        prediction_service.load_model()
+    if getattr(prediction_service, 'model', None) is None:
+        if hasattr(prediction_service, 'load_model'):
+            try:
+                prediction_service.load_model()
+            except Exception:
+                pass
         
-    if prediction_service.model is None:
+    if getattr(prediction_service, 'model', None) is None:
         raise HTTPException(status_code=503, detail="Model is currently unavailable")
         
     # Determine text from request

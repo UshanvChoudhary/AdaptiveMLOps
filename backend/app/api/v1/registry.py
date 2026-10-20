@@ -1,8 +1,9 @@
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.dependencies import get_db, get_admin_api_key
-from app.schemas.registry import ModelVersionResponse, ModelVersionListResponse
-from app.services.registry_service import get_all_models, get_model_by_version
+from app.dependencies import get_db, get_current_admin_or_api_key, get_current_reviewer_or_api_key
+from app.schemas.registry import ModelVersionResponse, ModelVersionListResponse, PromotionResponse, StatusUpdateResponse
+from app.services.registry_service import get_all_models, get_model_by_version, promote_model, manual_approve_model, manual_reject_model
 
 router = APIRouter(prefix="/models", tags=["registry"])
 
@@ -19,11 +20,12 @@ async def get_model(version: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Model version not found")
     return model
 
-from app.schemas.registry import PromotionResponse, StatusUpdateResponse
-from app.services.registry_service import promote_model, manual_approve_model, manual_reject_model
-
 @router.post("/{version}/promote", response_model=PromotionResponse)
-async def promote_candidate(version: str, db: AsyncSession = Depends(get_db)):
+async def promote_candidate(
+    version: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(get_current_admin_or_api_key)
+):
     try:
         result = await promote_model(db, version)
         return result
@@ -33,7 +35,11 @@ async def promote_candidate(version: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/{version}/approve", response_model=StatusUpdateResponse)
-async def approve_candidate(version: str, db: AsyncSession = Depends(get_db)):
+async def approve_candidate(
+    version: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(get_current_reviewer_or_api_key)
+):
     try:
         model = await manual_approve_model(db, version)
         return {"version": model.version, "status": model.status}
@@ -43,7 +49,11 @@ async def approve_candidate(version: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/{version}/reject", response_model=StatusUpdateResponse)
-async def reject_candidate(version: str, db: AsyncSession = Depends(get_db)):
+async def reject_candidate(
+    version: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(get_current_reviewer_or_api_key)
+):
     try:
         model = await manual_reject_model(db, version)
         return {"version": model.version, "status": model.status}

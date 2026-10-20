@@ -1,8 +1,9 @@
+import os
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload, selectinload
 from app.db.models.registry import ModelVersion, TrainingRun, Dataset, EvaluationRun, ModelAudit
-from typing import List
 from app.config import settings
 
 async def get_all_models(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[ModelVersion]:
@@ -33,12 +34,13 @@ async def evaluate_candidate_for_promotion(db: AsyncSession, candidate: ModelVer
         return {'decision': 'REJECT', 'reason': 'No evaluations found for candidate.'}
     
     cand_metrics = candidate.evaluations[-1].metrics
-    cand_f1 = cand_metrics.get('f1', 0)
-    cand_acc = cand_metrics.get('accuracy', 0)
-    cand_lat = cand_metrics.get('latency_p95_ms', 0)
+    cand_f1 = float(cand_metrics.get('f1') or cand_metrics.get('f1_score', 0))
+    cand_acc = float(cand_metrics.get('accuracy', 0))
+    cand_lat = float(cand_metrics.get('latency_p95_ms') or cand_metrics.get('latency_p99_ms', 0))
     
+    # Enforce quality gates
     if cand_f1 < settings.MIN_F1 or cand_acc < settings.MIN_ACCURACY:
-        return {'decision': 'REJECT', 'reason': f'Metrics below minimum thresholds (F1: {cand_f1}, Acc: {cand_acc})'}
+        return {'decision': 'REJECT', 'reason': f'Metrics below minimum thresholds (F1: {cand_f1:.3f}, Acc: {cand_acc:.3f})'}
         
     if cand_lat > settings.MAX_LATENCY_P95_MS:
         return {'decision': 'REJECT', 'reason': f'Latency too high ({cand_lat}ms)'}
@@ -50,7 +52,7 @@ async def evaluate_candidate_for_promotion(db: AsyncSession, candidate: ModelVer
         return {'decision': 'PROMOTE', 'reason': 'Champion has no evaluations.'}
         
     champ_metrics = champion.evaluations[-1].metrics
-    champ_f1 = champ_metrics.get('f1', 0)
+    champ_f1 = float(champ_metrics.get('f1') or champ_metrics.get('f1_score', 0))
     
     if cand_f1 > champ_f1 + settings.MIN_IMPROVEMENT:
         return {'decision': 'PROMOTE', 'reason': f'Candidate improved F1 by {cand_f1 - champ_f1:.4f}'}
@@ -60,7 +62,7 @@ async def evaluate_candidate_for_promotion(db: AsyncSession, candidate: ModelVer
         return {'decision': 'REJECT', 'reason': f'Candidate performs worse than champion. F1 diff: {cand_f1 - champ_f1:.4f}'}
 
 async def promote_model(db: AsyncSession, version: str) -> dict:
-    # Lock the candidate model
+    # Lock candidate model
     candidate = (await db.execute(select(ModelVersion).options(
         selectinload(ModelVersion.evaluations)
     ).filter(ModelVersion.version == version).with_for_update())).scalars().unique().first()
@@ -80,13 +82,41 @@ async def promote_model(db: AsyncSession, version: str) -> dict:
     evaluation_result = await evaluate_candidate_for_promotion(db, candidate, champion)
     
     if evaluation_result['decision'] == 'PROMOTE':
+        # Verify artifact exists on disk before promotion
+        artifact_path = candidate.artifact_path
+        if not os.path.isabs(artifact_path):
+            artifact_path = os.path.join(settings.BASE_DIR, artifact_path)
+
+        if not os.path.exists(artifact_path):
+            candidate.status = 'REJECTED'
+            audit = ModelAudit(model_version_id=candidate.id, action='REJECT', reason=f"Candidate artifact path '{candidate.artifact_path}' does not exist on disk.")
+            db.add(audit)
+            await db.commit()
+            await db.refresh(candidate)
+            return {
+                'decision': 'REJECT',
+                'reason': f"Candidate artifact path '{candidate.artifact_path}' does not exist on disk.",
+                'candidate_version': candidate.version,
+                'champion_version': champion.version if champion else None
+            }
+
+        # Demote previous champion
         if champion:
             champion.status = 'ARCHIVED'
+            
         candidate.status = 'PRODUCTION'
         audit = ModelAudit(model_version_id=candidate.id, action='PROMOTE', reason=evaluation_result['reason'])
         db.add(audit)
         await db.commit()
         await db.refresh(candidate)
+
+        # Switch active in-memory prediction service model
+        try:
+            from app.ml.prediction_service import prediction_service
+            prediction_service.artifact_dir = artifact_path
+            prediction_service.load_model()
+        except Exception:
+            pass
         
     elif evaluation_result['decision'] == 'REJECT':
         candidate.status = 'REJECTED'

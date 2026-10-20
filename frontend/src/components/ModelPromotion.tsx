@@ -54,7 +54,7 @@ export const ModelPromotion: React.FC = () => {
         setPromotionResult({ decision: 'PROMOTE', reason: dRes.data?.status || 'Promoted to DEPLOYED' });
         fetchModels();
       } catch (err: any) {
-        setPromotionResult({ decision: 'ERROR', reason: e.response?.data?.detail || e.message });
+        setPromotionResult({ decision: 'ERROR', reason: err.response?.data?.detail || err.message });
       }
     } finally {
       setLoading(false);

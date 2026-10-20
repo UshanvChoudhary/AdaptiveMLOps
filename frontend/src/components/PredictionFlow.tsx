@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 
 interface PredictionRecord {
@@ -71,7 +71,7 @@ export function PredictionFlow() {
         comments: isCorrect ? "Confirmed correct by professor/user" : "Correction submitted by professor/user"
       });
       setFeedbackStatus(isCorrect ? "CONFIRMED_CORRECT" : "REPORTED_INCORRECT");
-    } catch (err: any) {
+    } catch (_err: any) {
       // Fallback direct endpoint
       try {
         await axios.post('/api/v1/feedback/', {
@@ -79,7 +79,7 @@ export function PredictionFlow() {
           is_correct: isCorrect
         });
         setFeedbackStatus(isCorrect ? "CONFIRMED_CORRECT" : "REPORTED_INCORRECT");
-      } catch (e2) {
+      } catch (_e2) {
         setFeedbackStatus("RECORDED");
       }
     } finally {

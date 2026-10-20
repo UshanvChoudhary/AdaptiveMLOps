@@ -1,60 +1,75 @@
-import json
-import uuid
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
+import uuid
+import json
 
+from app.config import settings
 from app.dependencies import get_db
 from app.db.models.prediction import Prediction
 from app.db.models.feedback import Feedback
-from app.db.models.registry import ModelVersion, Dataset, TrainingRun, EvaluationRun
-from app.db.models.deployment import Deployment, DeploymentStatus
-from app.db.models.retraining import RetrainingJob
 from app.db.models.governance import AuditLog, AuditAction
+from app.db.models.retraining import RetrainingJob
+from app.db.models.registry import ModelVersion, EvaluationRun, TrainingRun, Dataset
+from app.db.models.deployment import Deployment, DeploymentStatus
 from app.db.models.monitoring import DriftRun, DriftStatus
 
-router = APIRouter()
+def verify_demo_mode():
+    if not settings.ENABLE_DEMO_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo endpoints are disabled in non-demo environment. Enable ENABLE_DEMO_MODE=true."
+        )
 
-async def get_or_create_demo_training_run(db: AsyncSession) -> TrainingRun:
-    ds_res = await db.execute(select(Dataset).where(Dataset.version == "demo-dataset-v1"))
-    dataset = ds_res.scalars().first()
-    if not dataset:
-        dataset = Dataset(version="demo-dataset-v1", checksum="demo-checksum-hash-12345")
-        db.add(dataset)
+router = APIRouter(dependencies=[Depends(verify_demo_mode)])
+
+async def get_or_create_demo_training_run(db: AsyncSession):
+    ds_res = await db.execute(select(Dataset).where(Dataset.version == "demo"))
+    ds = ds_res.scalars().first()
+    if not ds:
+        ds = Dataset(
+            version="demo",
+            checksum="73e460ee5c8b1c5d748aed2e2722b8a2bca9adfc032941490f5deedc4af4e9fb"
+        )
+        db.add(ds)
         await db.flush()
 
-    tr_res = await db.execute(select(TrainingRun).where(TrainingRun.dataset_id == dataset.id))
+    tr_res = await db.execute(select(TrainingRun).where(TrainingRun.dataset_id == ds.id))
     tr = tr_res.scalars().first()
     if not tr:
         tr = TrainingRun(
-            dataset_id=dataset.id,
-            git_commit="c0ffee1234567890abcdef1234567890abcdef12",
-            hyperparameters={"n_estimators": 100, "max_depth": 5, "learning_rate": 0.1},
-            status="SUCCESS"
+            dataset_id=ds.id,
+            git_commit="git-init-sha",
+            hyperparameters={"C": 1.0, "penalty": "l2", "solver": "lbfgs"},
+            status="COMPLETED"
         )
         db.add(tr)
         await db.flush()
     return tr
 
 @router.post("/seed")
-async def seed_demo_data(db: AsyncSession = Depends(get_db)):
+async def seed_demo_environment(db: AsyncSession = Depends(get_db)):
     tr = await get_or_create_demo_training_run(db)
-    
-    # Check if v1.0 exists
     res = await db.execute(select(ModelVersion).where(ModelVersion.version == "v1.0"))
     version = res.scalars().first()
     if not version:
         version = ModelVersion(
             version="v1.0",
-            algorithm="xgboost",
-            status="DEPLOYED",
-            artifact_path="/ml/artifacts/1.0.0",
+            algorithm="Logistic Regression + TF-IDF",
+            status="PRODUCTION",
+            artifact_path="ml/artifacts/1.0.0",
             training_run_id=tr.id
         )
         db.add(version)
         await db.flush()
-
+        
+        eval_run = EvaluationRun(
+            model_version_id=version.id,
+            dataset_id=tr.dataset_id,
+            metrics={"accuracy": 0.895, "f1_score": 0.887, "f1": 0.887, "latency_p95_ms": 14.2}
+        )
+        db.add(eval_run)
+        
         dep = Deployment(
             model_version_id=version.id,
             image_tag="v1.0.0",
@@ -66,8 +81,8 @@ async def seed_demo_data(db: AsyncSession = Depends(get_db)):
     
     audit = AuditLog(
         action=AuditAction.DEPLOYMENT_SUCCEEDED,
-        actor="professor",
-        details=json.dumps({"version": "v1.0", "status": "seeded"})
+        actor="demo_system",
+        details=json.dumps({"version": "v1.0", "status": "seeded", "type": "seeded_demo_metrics"})
     )
     db.add(audit)
     await db.commit()
@@ -77,9 +92,9 @@ async def seed_demo_data(db: AsyncSession = Depends(get_db)):
 async def generate_demo_feedback(db: AsyncSession = Depends(get_db)):
     pred = Prediction(
         model_version="v1.0",
-        input_text="Demo fraud detection sample transaction data",
-        predicted_label="legit",
-        confidence=0.985,
+        input_text="I was charged twice on my monthly invoice for renewal",
+        predicted_label="technical_support",
+        confidence=0.82,
         latency_ms=14.2,
         trace_id=uuid.uuid4()
     )
@@ -88,16 +103,18 @@ async def generate_demo_feedback(db: AsyncSession = Depends(get_db)):
     
     fb = Feedback(
         prediction_id=pred.id,
-        user_id="professor",
-        is_correct=True,
-        feedback_status="processed"
+        user_id="customer",
+        is_correct=False,
+        corrected_label="billing",
+        comments="Should be billing intent, not technical support",
+        feedback_status="pending"
     )
     db.add(fb)
     
     audit = AuditLog(
         action=AuditAction.FEEDBACK_SUBMITTED,
-        actor="professor",
-        details=json.dumps({"prediction_id": str(pred.id), "is_correct": True})
+        actor="customer",
+        details=json.dumps({"prediction_id": str(pred.id), "is_correct": False, "corrected_label": "billing"})
     )
     db.add(audit)
     await db.commit()
@@ -109,7 +126,7 @@ async def trigger_demo_retraining(background_tasks: BackgroundTasks, db: AsyncSe
     job = RetrainingJob(
         trigger_type="MANUAL",
         reason="Demonstration retraining trigger via UI",
-        feedback_count=15,
+        feedback_count=1,
         dataset_id=tr.dataset_id,
         status="COMPLETED"
     )
@@ -118,7 +135,7 @@ async def trigger_demo_retraining(background_tasks: BackgroundTasks, db: AsyncSe
     
     audit = AuditLog(
         action=AuditAction.RETRAINING_TRIGGERED,
-        actor="professor",
+        actor="admin",
         details=json.dumps({"job_id": str(job.id), "trigger": "UI"})
     )
     db.add(audit)
@@ -133,9 +150,9 @@ async def create_good_challenger(db: AsyncSession = Depends(get_db)):
     if not version:
         version = ModelVersion(
             version="v1.1-good",
-            algorithm="xgboost",
+            algorithm="Logistic Regression + TF-IDF",
             status="CANDIDATE",
-            artifact_path="demo/artifacts/v1.1-good",
+            artifact_path="ml/artifacts/1.0.0",
             training_run_id=tr.id
         )
         db.add(version)
@@ -144,13 +161,13 @@ async def create_good_challenger(db: AsyncSession = Depends(get_db)):
     eval_run = EvaluationRun(
         model_version_id=version.id,
         dataset_id=tr.dataset_id,
-        metrics={"accuracy": 0.942, "f1_score": 0.935, "latency_p99_ms": 18.4}
+        metrics={"accuracy": 0.942, "f1_score": 0.935, "f1": 0.935, "latency_p95_ms": 18.4, "metric_type": "seeded_demo"}
     )
     db.add(eval_run)
 
     audit = AuditLog(
         action=AuditAction.TRAINING_COMPLETED,
-        actor="professor",
+        actor="demo_system",
         details=json.dumps({"version": "v1.1-good", "metrics": eval_run.metrics})
     )
     db.add(audit)
@@ -165,9 +182,9 @@ async def create_bad_challenger(db: AsyncSession = Depends(get_db)):
     if not version:
         version = ModelVersion(
             version="v1.1-bad",
-            algorithm="xgboost",
+            algorithm="Logistic Regression + TF-IDF",
             status="CANDIDATE",
-            artifact_path="demo/artifacts/v1.1-bad",
+            artifact_path="ml/artifacts/1.0.0",
             training_run_id=tr.id
         )
         db.add(version)
@@ -176,13 +193,13 @@ async def create_bad_challenger(db: AsyncSession = Depends(get_db)):
     eval_run = EvaluationRun(
         model_version_id=version.id,
         dataset_id=tr.dataset_id,
-        metrics={"accuracy": 0.621, "f1_score": 0.584, "latency_p99_ms": 120.0}
+        metrics={"accuracy": 0.621, "f1_score": 0.584, "f1": 0.584, "latency_p95_ms": 120.0, "metric_type": "seeded_demo"}
     )
     db.add(eval_run)
 
     audit = AuditLog(
         action=AuditAction.TRAINING_COMPLETED,
-        actor="professor",
+        actor="demo_system",
         details=json.dumps({"version": "v1.1-bad", "metrics": eval_run.metrics})
     )
     db.add(audit)
@@ -191,7 +208,6 @@ async def create_bad_challenger(db: AsyncSession = Depends(get_db)):
 
 @router.post("/quality-gate")
 async def run_quality_gate(db: AsyncSession = Depends(get_db)):
-    # Update candidate versions based on metrics
     await db.execute(
         update(ModelVersion).where(ModelVersion.version == "v1.1-good").values(status="APPROVED")
     )
@@ -202,7 +218,7 @@ async def run_quality_gate(db: AsyncSession = Depends(get_db)):
     audit = AuditLog(
         action=AuditAction.MODEL_APPROVED,
         actor="quality_gate",
-        details=json.dumps({"status": "v1.1-good PASSED quality gate; v1.1-bad REJECTED"})
+        details=json.dumps({"status": "v1.1-good PASSED quality gate (F1: 0.935); v1.1-bad REJECTED (F1: 0.584)"})
     )
     db.add(audit)
     await db.commit()
@@ -217,28 +233,28 @@ async def promote_model(db: AsyncSession = Depends(get_db)):
         update(ModelVersion).where(ModelVersion.version == "v1.0").values(status="ARCHIVED")
     )
     if good_ver:
-        good_ver.status = "DEPLOYED"
+        good_ver.status = "PRODUCTION"
         dep = Deployment(
             model_version_id=good_ver.id,
             image_tag="v1.1-good",
             environment="production",
             status=DeploymentStatus.SUCCESS,
-            actor="professor"
+            actor="admin"
         )
         db.add(dep)
         
     audit = AuditLog(
         action=AuditAction.MODEL_APPROVED,
-        actor="professor",
+        actor="admin",
         details=json.dumps({"promoted_version": "v1.1-good", "action": "promote_to_production"})
     )
     db.add(audit)
     await db.commit()
-    return {"status": "Model v1.1-good promoted to DEPLOYED"}
+    return {"status": "Model v1.1-good promoted to PRODUCTION"}
 
 @router.post("/deploy/fail")
 async def simulate_deployment_failure(db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(ModelVersion).where(ModelVersion.status.in_(["DEPLOYED", "APPROVED"])))
+    res = await db.execute(select(ModelVersion).where(ModelVersion.status.in_(["PRODUCTION", "APPROVED", "DEPLOYED"])))
     ver = res.scalars().first()
     if ver:
         dep = Deployment(
@@ -246,7 +262,8 @@ async def simulate_deployment_failure(db: AsyncSession = Depends(get_db)):
             image_tag="canary-broken-tag",
             environment="production",
             status=DeploymentStatus.FAILED,
-            actor="professor"
+            actor="admin",
+            health_result={"error": "Canary health check timeout on /ready"}
         )
         db.add(dep)
         
@@ -261,9 +278,8 @@ async def simulate_deployment_failure(db: AsyncSession = Depends(get_db)):
 
 @router.post("/rollback")
 async def demo_rollback(db: AsyncSession = Depends(get_db)):
-    # Rollback to v1.0
     await db.execute(
-        update(ModelVersion).where(ModelVersion.version == "v1.0").values(status="DEPLOYED")
+        update(ModelVersion).where(ModelVersion.version == "v1.0").values(status="PRODUCTION")
     )
     await db.execute(
         update(ModelVersion).where(ModelVersion.version == "v1.1-good").values(status="ARCHIVED")
@@ -271,7 +287,7 @@ async def demo_rollback(db: AsyncSession = Depends(get_db)):
     
     audit = AuditLog(
         action=AuditAction.ROLLBACK,
-        actor="professor",
+        actor="admin",
         details=json.dumps({"status": "Rollback to v1.0 executed"})
     )
     db.add(audit)
@@ -283,13 +299,13 @@ async def simulate_drift(db: AsyncSession = Depends(get_db)):
     alert = DriftRun(
         status=DriftStatus.CRITICAL,
         drift_score=0.88,
-        recommended_action="Significant covariate shift detected. Trigger retraining pipeline."
+        recommended_action="Significant intent distribution shift detected. Retraining recommended."
     )
     db.add(alert)
     audit = AuditLog(
         action=AuditAction.RETRAINING_TRIGGERED,
         actor="drift_monitor",
-        details=json.dumps({"feature": "transaction_amount", "score": 0.88, "threshold": 0.5})
+        details=json.dumps({"feature": "intent_distribution", "score": 0.88, "threshold": 0.30})
     )
     db.add(audit)
     await db.commit()
