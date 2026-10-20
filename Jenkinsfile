@@ -7,7 +7,7 @@ pipeline {
         PYTHONPATH = "backend"
         // Use credentials for real DB instead of hardcoded sqlite, for production
         // But for this CI test environment we connect to our local docker-compose postgres
-        SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@localhost:5433/adaptive_mlops_test"
+        SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@host.docker.internal:5433/adaptive_mlops_test"
     }
 
     stages {
