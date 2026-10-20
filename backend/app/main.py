@@ -11,6 +11,13 @@ from app.ml.prediction_service import prediction_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Preload ML model
+    try:
+        prediction_service.load_model()
+        print("Production ML model preloaded successfully.")
+    except Exception as e:
+        print(f"Warning: Could not preload model: {e}")
+        
     # Resume queued or stuck background jobs
     from app.db.session import SessionLocal
     from app.api.v1.retraining import run_job_background
@@ -31,7 +38,6 @@ async def lifespan(app: FastAPI):
         
     yield
 
-
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
@@ -40,7 +46,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:5173")],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

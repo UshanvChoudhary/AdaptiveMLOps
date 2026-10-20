@@ -1,9 +1,10 @@
 from pydantic import BaseModel, Field, UUID4
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 
 class PredictionRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=5000)
+    text: Optional[str] = Field(None, max_length=5000)
+    features: Optional[Dict[str, Any]] = None
 
 class PredictionResponse(BaseModel):
     prediction_id: UUID4

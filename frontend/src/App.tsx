@@ -19,7 +19,9 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      // fixed below
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
     }
   }, [token]);
 
@@ -33,7 +35,7 @@ function App() {
       const access_token = res.data.access_token;
       setToken(access_token);
       localStorage.setItem('token', access_token);
-      // fixed below
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
     } catch (err) {
       alert("Login failed");
     }
@@ -41,73 +43,84 @@ function App() {
 
   if (!token) {
     return (
-      <div style={{ padding: '50px', textAlign: 'center' }}>
+      <div style={{ padding: '50px', textAlign: 'center', background: '#0f172a', minHeight: '100vh', color: '#fff' }}>
         <h2>Login to AdaptiveMLOps</h2>
-        <form onSubmit={handleLogin}>
-          <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" /><br/><br/>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" /><br/><br/>
-          <button type="submit">Login</button>
+        <form onSubmit={handleLogin} style={{ maxWidth: '300px', margin: '0 auto', background: '#1e293b', padding: '30px', borderRadius: '8px' }}>
+          <input 
+            value={username} 
+            onChange={e => setUsername(e.target.value)} 
+            placeholder="Username" 
+            style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', background: '#0f172a', color: '#fff', border: '1px solid #334155' }} 
+          /><br/>
+          <input 
+            type="password" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)} 
+            placeholder="Password" 
+            style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '4px', background: '#0f172a', color: '#fff', border: '1px solid #334155' }} 
+          /><br/>
+          <button 
+            type="submit" 
+            style={{ width: '100%', padding: '10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            Sign In
+          </button>
         </form>
       </div>
     );
   }
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>AdaptiveMLOps <button onClick={() => { setToken(null); localStorage.removeItem('token'); }} style={{fontSize: '12px', marginLeft: '20px'}}>Logout</button></h1>
-        <nav style={{ marginBottom: '20px' }}>
-          <button 
-            onClick={() => setActiveTab('prediction')}
-            style={{ fontWeight: activeTab === 'prediction' ? 'bold' : 'normal', marginRight: '10px' }}
-          >
-            Predictions & Feedback
-          </button>
-          <button 
-            onClick={() => setActiveTab('registry')}
-            style={{ fontWeight: activeTab === 'registry' ? 'bold' : 'normal', marginRight: '10px' }}
-          >
-            Model Registry
-          </button>
-          <button 
-            onClick={() => setActiveTab('retraining')}
-            style={{ fontWeight: activeTab === 'retraining' ? 'bold' : 'normal', marginRight: '10px' }}
-          >
-            Retraining Engine
-          </button>
-          <button 
-            onClick={() => setActiveTab('promotion')}
-            style={{ fontWeight: activeTab === 'promotion' ? 'bold' : 'normal', marginRight: '10px' }}
-          >
-            Model Promotion
-          </button>
-          <button 
-            onClick={() => setActiveTab('monitoring')}
-            style={{ fontWeight: activeTab === 'monitoring' ? 'bold' : 'normal', marginRight: '10px' }}
-          >
-            Monitoring & Drift
-          </button>
-          <button 
-            onClick={() => setActiveTab('demo')}
-            style={{ fontWeight: activeTab === 'demo' ? 'bold' : 'normal', marginRight: '10px', color: 'red' }}
-          >
-            Demo Controls
-          </button>
-          <button 
-            onClick={() => setActiveTab('lifecycle')}
-            style={{ fontWeight: activeTab === 'lifecycle' ? 'bold' : 'normal', marginRight: '10px' }}
-          >
-            Lifecycle
-          </button>
-          <button 
-            onClick={() => setActiveTab('governance')}
-            style={{ fontWeight: activeTab === 'governance' ? 'bold' : 'normal' }}
-          >
-            Governance
-          </button>
+    <div className="App" style={{ minHeight: '100vh', background: '#0f172a', color: '#f8fafc' }}>
+      <header className="App-header" style={{ padding: '20px', borderBottom: '1px solid #1e293b' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto 20px auto' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', letterSpacing: '-0.5px' }}>
+            AdaptiveMLOps <span style={{ fontSize: '13px', background: '#2563eb', padding: '3px 8px', borderRadius: '4px', verticalAlign: 'middle' }}>v1.0 Production</span>
+          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <span style={{ fontSize: '13px', color: '#94a3b8' }}>User: <strong style={{ color: '#f8fafc' }}>{username} (Admin)</strong></span>
+            <button 
+              onClick={() => { setToken(null); localStorage.removeItem('token'); }} 
+              style={{ fontSize: '12px', padding: '5px 12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+        
+        <nav style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {[
+            { key: 'prediction', label: 'Predictions & Feedback' },
+            { key: 'registry', label: 'Model Registry' },
+            { key: 'retraining', label: 'Retraining Engine' },
+            { key: 'promotion', label: 'Model Promotion' },
+            { key: 'monitoring', label: 'Monitoring & Drift' },
+            { key: 'demo', label: '★ Professor Demo Controls', highlight: true },
+            { key: 'lifecycle', label: 'System Lifecycle' },
+            { key: 'governance', label: 'Governance & Audits' },
+          ].map(tab => (
+            <button 
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              style={{ 
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: tab.key === activeTab ? '1px solid #3b82f6' : '1px solid #334155',
+                background: tab.key === activeTab ? '#1e3a8a' : (tab.highlight ? '#450a0a' : '#1e293b'),
+                color: tab.key === activeTab ? '#60a5fa' : (tab.highlight ? '#f87171' : '#cbd5e1'),
+                fontWeight: tab.key === activeTab ? 'bold' : 'normal',
+                cursor: 'pointer',
+                fontSize: '13px',
+                transition: 'all 0.15s ease-in-out'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </nav>
       </header>
-      <main>
+      
+      <main style={{ padding: '30px 20px', maxWidth: '1200px', margin: '0 auto' }}>
         {activeTab === 'prediction' && <PredictionFlow />}
         {activeTab === 'registry' && <ModelRegistry />}
         {activeTab === 'retraining' && <Retraining />}
