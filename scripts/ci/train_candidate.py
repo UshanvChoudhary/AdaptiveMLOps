@@ -49,12 +49,13 @@ with TestClient(app) as client:
         # Verify candidate actually exists
         models_res = client.get("/api/v1/models/")
         candidates = [m for m in models_res.json().get("models", []) if m["status"] == "CANDIDATE"]
-        if candidates:
-            print(f"Found Candidate: {candidates[0]['version']}")
+        cand_models = [m for m in candidates if m.get("evaluations") or m["version"].startswith("cand-")]
+        candidate = cand_models[-1] if cand_models else (candidates[-1] if candidates else None)
+        if candidate:
+            print(f"Found Candidate: {candidate['version']}")
             sys.exit(0)
         else:
             print("Job succeeded but no CANDIDATE model was found in registry!")
-            # Let's check job status
             job_id = res.json()["id"]
             job_res = client.get(f"/api/v1/retraining/jobs/{job_id}")
             print("Job details:", job_res.json())

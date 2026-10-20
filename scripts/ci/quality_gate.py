@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 print("Running Quality Gate...")
-# Get candidate again
 with TestClient(app) as client:
     res = client.get("/api/v1/models/")
     models = res.json().get("models", [])
@@ -18,14 +17,16 @@ with TestClient(app) as client:
         print("No CANDIDATE found to promote.")
         sys.exit(1)
     
-    candidate = candidates[0]
+    cand_models = [m for m in candidates if m.get("evaluations") or m["version"].startswith("cand-")]
+    candidate = cand_models[-1] if cand_models else candidates[-1]
     version = candidate["version"]
+    print(f"Evaluating candidate {version} for promotion...")
     
     promote_res = client.post(f"/api/v1/models/{version}/promote", headers={"X-API-Key": "secret-admin-key"})
     if promote_res.status_code == 200:
         decision = promote_res.json().get("decision")
         if decision == "PROMOTE":
-            print("Quality gate passed! Model promoted to PRODUCTION.")
+            print(f"Quality gate passed! Model {version} promoted to PRODUCTION.")
             sys.exit(0)
         else:
             print(f"Quality gate rejected candidate. Decision: {decision}. Reason: {promote_res.json().get('reason')}")

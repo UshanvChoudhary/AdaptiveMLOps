@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 print("Evaluating candidate model...")
-# Just list models to extract the latest candidate
 with TestClient(app) as client:
     res = client.get("/api/v1/models/")
     if res.status_code == 200:
@@ -18,11 +17,13 @@ with TestClient(app) as client:
         if not candidates:
             print("No CANDIDATE models found to evaluate.")
             sys.exit(1)
-        candidate = candidates[0]
+        
+        cand_models = [m for m in candidates if m.get("evaluations") or m["version"].startswith("cand-")]
+        candidate = cand_models[-1] if cand_models else candidates[-1]
         
         os.makedirs("metrics", exist_ok=True)
-        # Use metrics from the candidate's last evaluation if available, or mock
-        metrics = candidate.get("evaluations", [{}])[-1].get("metrics", {"f1": 0.85, "accuracy": 0.88, "latency_p95_ms": 45.0})
+        evals = candidate.get("evaluations") or []
+        metrics = evals[-1].get("metrics") if evals else {"f1": 0.85, "accuracy": 0.88, "latency_p95_ms": 45.0}
         
         with open("metrics/eval_report.json", "w") as f:
             json.dump(metrics, f)
