@@ -11,6 +11,11 @@ from app.ml.prediction_service import prediction_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        prediction_service.load_model()
+    except Exception as e:
+        print(f"Lifespan model load error: {e}")
+
     # Resume queued or stuck background jobs
     from app.db.session import SessionLocal
     from app.api.v1.retraining import run_job_background

@@ -6,6 +6,9 @@ os.environ["BACKEND_CORS_ORIGINS"] = '["http://localhost:5173"]'
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../backend')))
 from fastapi.testclient import TestClient
 from app.main import app
+from app.ml.prediction_service import prediction_service
+
+prediction_service.load_model()
 
 print("Running API Integration Tests...")
 with TestClient(app) as client:
