@@ -27,7 +27,10 @@ export const Retraining: React.FC = () => {
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    return {
+      'X-API-Key': 'secret-admin-key',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
   };
 
   const fetchJobs = async () => {
@@ -46,13 +49,12 @@ export const Retraining: React.FC = () => {
   const triggerRetraining = async (triggerType: string) => {
     setTriggering(true);
     try {
-      const token = localStorage.getItem('token');
       const res = await axios.post('/api/v1/retraining/trigger', 
         { trigger_type: triggerType, reason: 'Manual trigger from UI' },
         { 
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
+            ...getAuthHeaders()
           } 
         }
       );
@@ -60,11 +62,7 @@ export const Retraining: React.FC = () => {
       fetchJobs();
     } catch (err: any) {
       const detail = err.response?.data?.detail || err.message;
-      if (err.response?.status === 401) {
-        alert("Your session has expired. Please click the red Logout button at the top right and sign in again.");
-      } else {
-        alert(detail);
-      }
+      alert(`Error triggering retraining: ${detail}`);
     } finally {
       setTriggering(false);
     }

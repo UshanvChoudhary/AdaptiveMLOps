@@ -11,13 +11,17 @@ import { DemoMode } from './components/DemoMode';
 import { SystemLifecycle } from './components/SystemLifecycle';
 import './App.css';
 
+// Ensure demo admin API key is always attached by default
+axios.defaults.headers.common['X-API-Key'] = 'secret-admin-key';
+
 function App() {
   const [activeTab, setActiveTab] = useState<'prediction' | 'registry' | 'retraining' | 'promotion' | 'monitoring' | 'governance' | 'demo' | 'lifecycle'>('prediction');
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token') || 'demo-admin-token');
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('password');
 
   useEffect(() => {
+    axios.defaults.headers.common['X-API-Key'] = 'secret-admin-key';
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {
@@ -95,7 +99,7 @@ function App() {
             { key: 'retraining', label: 'Retraining Engine' },
             { key: 'promotion', label: 'Model Promotion' },
             { key: 'monitoring', label: 'Monitoring & Drift' },
-            { key: 'demo', label: '★ Professor Demo Controls', highlight: true },
+            { key: 'demo', label: '? Professor Demo Controls', highlight: true },
             { key: 'lifecycle', label: 'System Lifecycle' },
             { key: 'governance', label: 'Governance & Audits' },
           ].map(tab => (

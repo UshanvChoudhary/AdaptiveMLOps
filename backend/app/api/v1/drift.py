@@ -13,12 +13,12 @@ class DriftRunRequest(BaseModel):
 
 @router.post("/run", response_model=DriftRunResponse)
 async def run_drift_analysis(request: DriftRunRequest, db: AsyncSession = Depends(get_db)):
-    drift_run = calculate_drift(db, reference_dataset_id=request.reference_dataset_id)
+    drift_run = await calculate_drift(db, reference_dataset_id=request.reference_dataset_id)
     return drift_run
 
 @router.get("/latest", response_model=DriftRunResponse)
 async def get_latest_drift_endpoint(db: AsyncSession = Depends(get_db)):
-    drift_run = get_latest_drift(db)
+    drift_run = await get_latest_drift(db)
     if not drift_run:
         raise HTTPException(status_code=404, detail="No drift runs found")
     return drift_run
