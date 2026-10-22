@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const API_URL = "/api/v1";
+import axios from 'axios';
 
 interface RetrainingJob {
   id: string;
@@ -26,19 +25,19 @@ export const Retraining: React.FC = () => {
     fetchJobs();
   }, []);
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const fetchJobs = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/retraining/jobs`, {
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+      const res = await axios.get('/api/v1/retraining/jobs', {
+        headers: getAuthHeaders()
       });
-      if (!res.ok) throw new Error('Failed to fetch retraining jobs');
-      const data = await res.json();
-      setJobs(data.jobs || []);
+      setJobs(res.data.jobs || []);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.detail || err.message);
     } finally {
       setLoading(false);
     }
@@ -48,22 +47,24 @@ export const Retraining: React.FC = () => {
     setTriggering(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/retraining/trigger`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ trigger_type: triggerType, reason: 'Manual trigger from UI' })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to trigger job');
-      }
+      const res = await axios.post('/api/v1/retraining/trigger', 
+        { trigger_type: triggerType, reason: 'Manual trigger from UI' },
+        { 
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          } 
+        }
+      );
       alert('Retraining job triggered successfully');
       fetchJobs();
     } catch (err: any) {
-      alert(err.message);
+      const detail = err.response?.data?.detail || err.message;
+      if (err.response?.status === 401) {
+        alert("Your session has expired. Please click the red Logout button at the top right and sign in again.");
+      } else {
+        alert(detail);
+      }
     } finally {
       setTriggering(false);
     }
