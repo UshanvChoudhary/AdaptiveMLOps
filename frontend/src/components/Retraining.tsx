@@ -49,7 +49,7 @@ export const Retraining: React.FC = () => {
   const triggerRetraining = async (triggerType: string) => {
     setTriggering(true);
     try {
-      const res = await axios.post('/api/v1/retraining/trigger', 
+      await axios.post('/api/v1/retraining/trigger', 
         { trigger_type: triggerType, reason: 'Manual trigger from UI' },
         { 
           headers: {
