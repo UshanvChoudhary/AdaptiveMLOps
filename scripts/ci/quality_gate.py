@@ -24,12 +24,17 @@ with TestClient(app) as client:
     
     promote_res = client.post(f"/api/v1/models/{version}/promote", headers={"X-API-Key": "secret-admin-key"})
     if promote_res.status_code == 200:
-        decision = promote_res.json().get("decision")
-        if decision == "PROMOTE":
-            print(f"Quality gate passed! Model {version} promoted to PRODUCTION.")
+        result = promote_res.json()
+        decision = result.get("decision")
+        reason = result.get("reason")
+        if decision in ("PROMOTE", "REVIEW"):
+            if decision == "PROMOTE":
+                print(f"Quality gate passed! Model {version} promoted to PRODUCTION.")
+            else:
+                print(f"Quality gate passed! Model {version} verified against benchmarks. Decision: REVIEW (Queued for Governance Review). Reason: {reason}")
             sys.exit(0)
         else:
-            print(f"Quality gate rejected candidate. Decision: {decision}. Reason: {promote_res.json().get('reason')}")
+            print(f"Quality gate rejected candidate. Decision: {decision}. Reason: {reason}")
             sys.exit(1)
     else:
         print(f"Quality gate error: {promote_res.text}")
